@@ -7,6 +7,8 @@ param(
     [ValidateRange(1, 1200)]
     [int]$DeleteArchivesOlderThanMonths,
 
+    [switch]$DeleteSourceAfterCompression,
+
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'archive-logs.config.json')
 )
 
@@ -26,7 +28,7 @@ function Write-Log {
     Write-Host "[$timestamp] [$Level] $Message"
 }
 
-Write-Log -Level 'INFO' -Message "Starting log archive run. CompressOlderThanDays=$CompressOlderThanDays, DeleteArchivesOlderThanMonths=$DeleteArchivesOlderThanMonths"
+Write-Log -Level 'INFO' -Message "Starting log archive run. CompressOlderThanDays=$CompressOlderThanDays, DeleteArchivesOlderThanMonths=$DeleteArchivesOlderThanMonths, DeleteSourceAfterCompression=$($DeleteSourceAfterCompression.IsPresent)"
 
 if (-not (Test-Path -Path $ConfigPath -PathType Leaf)) {
     throw "Config file not found: $ConfigPath"
@@ -136,6 +138,13 @@ foreach ($directoryConfig in $configuredDirectories) {
             if ($compression.ExitCode -eq 0) {
                 $totalCompressedFiles += $folder.Count
                 Write-Log -Level 'INFO' -Message "Compression completed: $archivePath"
+
+                if ($DeleteSourceAfterCompression) {
+                    foreach ($sourceFile in $filePaths) {
+                        Remove-Item -Path $sourceFile -Force
+                        Write-Log -Level 'INFO' -Message "Deleted source file: $sourceFile"
+                    }
+                }
             } else {
                 throw "Compression failed for $archivePath (exit code $($compression.ExitCode))"
             }
