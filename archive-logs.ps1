@@ -28,6 +28,25 @@ function Write-Log {
     Write-Host "[$timestamp] [$Level] $Message"
 }
 
+function Test-FileReadyForCompression {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+}
+
 Write-Log -Level 'INFO' -Message "Starting log archive run. CompressOlderThanDays=$CompressOlderThanDays, DeleteArchivesOlderThanMonths=$DeleteArchivesOlderThanMonths, DeleteSourceAfterCompression=$($DeleteSourceAfterCompression.IsPresent)"
 
 if (-not (Test-Path -Path $ConfigPath -PathType Leaf)) {
@@ -119,7 +138,28 @@ foreach ($directoryConfig in $configuredDirectories) {
             $archivePath = Join-Path $folder.Name "$archiveDate.7z"
             $filePaths = $folder.Group | Select-Object -ExpandProperty FullName
 
-            Write-Log -Level 'INFO' -Message "Compressing $($folder.Count) file(s) into $archivePath"
+            $compressibleFilePaths = @()
+            $inUseFilePaths = @()
+            foreach ($filePath in $filePaths) {
+                if (Test-FileReadyForCompression -Path $filePath) {
+                    $compressibleFilePaths += $filePath
+                } else {
+                    $inUseFilePaths += $filePath
+                }
+            }
+
+            if ($inUseFilePaths.Count -gt 0) {
+                foreach ($inUseFilePath in $inUseFilePaths) {
+                    Write-Log -Level 'WARN' -Message "Skipping file in use: $inUseFilePath"
+                }
+            }
+
+            if ($compressibleFilePaths.Count -eq 0) {
+                Write-Log -Level 'WARN' -Message "Skipping archive creation for $($folder.Name) because all candidate files are currently in use."
+                continue
+            }
+
+            Write-Log -Level 'INFO' -Message "Compressing $($compressibleFilePaths.Count) file(s) into $archivePath"
 
             $arguments = @(
                 'a',
@@ -132,15 +172,15 @@ foreach ($directoryConfig in $configuredDirectories) {
                 '-mcu=on',
                 '-bb0',
                 $archivePath
-            ) + $filePaths
+            ) + $compressibleFilePaths
 
             $compression = Start-Process -FilePath $sevenZip.Source -ArgumentList $arguments -NoNewWindow -Wait -PassThru
             if ($compression.ExitCode -eq 0) {
-                $totalCompressedFiles += $folder.Count
+                $totalCompressedFiles += $compressibleFilePaths.Count
                 Write-Log -Level 'INFO' -Message "Compression completed: $archivePath"
 
                 if ($DeleteSourceAfterCompression) {
-                    foreach ($sourceFile in $filePaths) {
+                    foreach ($sourceFile in $compressibleFilePaths) {
                         Remove-Item -Path $sourceFile -Force
                         Write-Log -Level 'INFO' -Message "Deleted source file: $sourceFile"
                     }
