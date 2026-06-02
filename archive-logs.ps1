@@ -161,6 +161,9 @@ foreach ($directoryConfig in $configuredDirectories) {
 
             Write-Log -Level 'INFO' -Message "Compressing $($compressibleFilePaths.Count) file(s) into $archivePath"
 
+            $listFilePath = Join-Path ([System.IO.Path]::GetTempPath()) ("logcleaner-7z-{0}.txt" -f [System.Guid]::NewGuid().ToString('N'))
+            Set-Content -Path $listFilePath -Value $compressibleFilePaths -Encoding UTF8
+
             $arguments = @(
                 'a',
                 '-tzip',
@@ -171,10 +174,15 @@ foreach ($directoryConfig in $configuredDirectories) {
                 '-mpass=10',
                 '-mcu=on',
                 '-bb0',
-                $archivePath
-            ) + $compressibleFilePaths
+                $archivePath,
+                "@$listFilePath"
+            )
 
-            $compression = Start-Process -FilePath $sevenZip.Source -ArgumentList $arguments -NoNewWindow -Wait -PassThru
+            try {
+                $compression = Start-Process -FilePath $sevenZip.Source -ArgumentList $arguments -NoNewWindow -Wait -PassThru
+            } finally {
+                Remove-Item -Path $listFilePath -Force -ErrorAction SilentlyContinue
+            }
             if ($compression.ExitCode -eq 0) {
                 $totalCompressedFiles += $compressibleFilePaths.Count
                 Write-Log -Level 'INFO' -Message "Compression completed: $archivePath"
