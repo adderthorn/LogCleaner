@@ -37,6 +37,40 @@ if (-not $config.LogDirectories -or $config.LogDirectories.Count -eq 0) {
     throw "Config file '$ConfigPath' must contain a 'LogDirectories' array."
 }
 
+$configuredDirectories = @()
+foreach ($entry in $config.LogDirectories) {
+    $directoryPath = $null
+    $recursive = $false
+
+    if ($entry -is [string]) {
+        $directoryPath = $entry
+    } else {
+        if ($entry.PSObject.Properties.Name -contains 'path') {
+            $directoryPath = [string]$entry.path
+        } elseif ($entry.PSObject.Properties.Name -contains 'directory') {
+            $directoryPath = [string]$entry.directory
+        }
+
+        if ($entry.PSObject.Properties.Name -contains 'recursive') {
+            $recursive = [bool]$entry.recursive
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($directoryPath)) {
+        Write-Log -Level 'WARN' -Message 'Skipping invalid LogDirectories entry with no path value.'
+        continue
+    }
+
+    $configuredDirectories += [PSCustomObject]@{
+        Path = $directoryPath
+        Recursive = $recursive
+    }
+}
+
+if ($configuredDirectories.Count -eq 0) {
+    throw "Config file '$ConfigPath' does not contain any valid log directory entries."
+}
+
 $sevenZip = Get-Command -Name '7z.exe' -ErrorAction SilentlyContinue
 if (-not $sevenZip) {
     throw "7z.exe was not found in PATH. Update `$SevenZipBinDirectory at the top of this script."
@@ -49,16 +83,30 @@ $archiveDate = Get-Date -Format 'yyyy-MM-dd'
 $totalCompressedFiles = 0
 $totalDeletedArchives = 0
 
-foreach ($directory in $config.LogDirectories) {
+foreach ($directoryConfig in $configuredDirectories) {
+    $directory = $directoryConfig.Path
+    $recursive = $directoryConfig.Recursive
+
     if (-not (Test-Path -Path $directory -PathType Container)) {
         Write-Log -Level 'WARN' -Message "Skipping missing directory: $directory"
         continue
     }
 
-    Write-Log -Level 'INFO' -Message "Scanning directory: $directory"
+    Write-Log -Level 'INFO' -Message "Scanning directory: $directory (recursive=$recursive)"
 
-    $candidateFiles = Get-ChildItem -Path $directory -Recurse -File -Include '*.log', '*.txt' |
-        Where-Object { $_.LastWriteTime -lt $compressCutoff }
+    $scanArguments = @{
+        Path = $directory
+        File = $true
+    }
+    if ($recursive) {
+        $scanArguments.Recurse = $true
+    }
+
+    $candidateFiles = Get-ChildItem @scanArguments |
+        Where-Object {
+            $_.Extension -in '.log', '.txt' -and
+            $_.LastWriteTime -lt $compressCutoff
+        }
 
     if (-not $candidateFiles) {
         Write-Log -Level 'INFO' -Message "No files eligible for compression in $directory"
@@ -99,7 +147,16 @@ foreach ($directory in $config.LogDirectories) {
         }
     }
 
-    $oldArchives = Get-ChildItem -Path $directory -Recurse -File -Filter '*.7z' |
+    $archiveScanArguments = @{
+        Path = $directory
+        File = $true
+        Filter = '*.7z'
+    }
+    if ($recursive) {
+        $archiveScanArguments.Recurse = $true
+    }
+
+    $oldArchives = Get-ChildItem @archiveScanArguments |
         Where-Object { $_.LastWriteTime -lt $archiveDeleteCutoff }
 
     foreach ($archive in $oldArchives) {

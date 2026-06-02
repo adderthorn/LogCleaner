@@ -1,0 +1,12 @@
+{
+  "LogDirectories": [
+    {
+      "path": "C:\\Logs\\App1",
+      "recursive": false
+    },
+    {
+      "path": "D:\\Services\\Logs",
+      "recursive": true
+    }
+  ]
+}
