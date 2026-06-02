@@ -122,18 +122,13 @@ foreach ($directoryConfig in $configuredDirectories) {
             $arguments = @(
                 'a',
                 '-tzip',
-                '-mtp=0',
                 '-mm=Deflate',
                 '-mmt=on',
                 '-mx9',
                 '-mfb=128',
                 '-mpass=10',
-                '-sccUTF-8',
                 '-mcu=on',
-                '-mem=AES256',
                 '-bb0',
-                '-bse0',
-                '-bsp2',
                 $archivePath
             ) + $filePaths
 
@@ -142,7 +137,7 @@ foreach ($directoryConfig in $configuredDirectories) {
                 $totalCompressedFiles += $folder.Count
                 Write-Log -Level 'INFO' -Message "Compression completed: $archivePath"
             } else {
-                Write-Log -Level 'ERROR' -Message "Compression failed for $archivePath (exit code $($compression.ExitCode))"
+                throw "Compression failed for $archivePath (exit code $($compression.ExitCode))"
             }
         }
     }
