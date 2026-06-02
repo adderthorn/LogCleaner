@@ -30,11 +30,19 @@ Edit `logcleaner.config.json`:
 ```json
 {
   "LogDirectories": [
-    "C:\\Logs\\App1",
-    "D:\\Services\\Logs"
+    {
+      "path": "C:\\Logs\\App1",
+      "recursive": false
+    },
+    {
+      "path": "D:\\Services\\Logs",
+      "recursive": true
+    }
   ]
 }
 ```
+
+`recursive` is optional and defaults to `false` when omitted.
 
 ## Usage
 
@@ -59,7 +67,7 @@ The script uses `7z.exe` with:
 ## Runtime behavior
 
 1. Loads configured log directories.
-2. Finds `*.log` and `*.txt` files older than `CompressOlderThanDays`.
+2. Finds `*.log` and `*.txt` files older than `CompressOlderThanDays` (recursively only when `recursive` is `true` for that configured directory).
 3. Groups files by folder and compresses them into `<folder>\yyyy-MM-dd.7z`.
-4. Removes `*.7z` archives older than `DeleteArchivesOlderThanMonths`.
+4. Removes `*.7z` archives older than `DeleteArchivesOlderThanMonths` (recursively only when `recursive` is `true`).
 5. Writes timestamped progress and error output to the console.
