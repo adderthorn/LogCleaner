@@ -7,7 +7,7 @@ param(
     [ValidateRange(1, 1200)]
     [int]$DeleteArchivesOlderThanMonths,
 
-    [string]$ConfigPath = (Join-Path $PSScriptRoot 'logcleaner.config.json')
+    [string]$ConfigPath = (Join-Path $PSScriptRoot 'archive-logs.config.json')
 )
 
 $ErrorActionPreference = 'Stop'

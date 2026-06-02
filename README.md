@@ -10,7 +10,7 @@ PowerShell-based log archiver that:
 ## Files
 
 - `/home/runner/work/LogCleaner/LogCleaner/archive-logs.ps1` - main script
-- `/home/runner/work/LogCleaner/LogCleaner/logcleaner.config.json` - directory configuration
+- `/home/runner/work/LogCleaner/LogCleaner/archive-logs.config.json` - directory configuration
 
 ## Configure 7-Zip path
 
@@ -25,7 +25,7 @@ Update `SevenZipBinDirectory` to the folder that contains `7z.exe`.
 
 ## Configure log directories
 
-Edit `logcleaner.config.json`:
+Edit `archive-logs.config.json`:
 
 ```json
 {
@@ -53,7 +53,7 @@ Edit `logcleaner.config.json`:
 Optional:
 
 ```powershell
-.\archive-logs.ps1 -CompressOlderThanDays 14 -DeleteArchivesOlderThanMonths 6 -ConfigPath .\logcleaner.config.json
+.\archive-logs.ps1 -CompressOlderThanDays 14 -DeleteArchivesOlderThanMonths 6 -ConfigPath .\archive-logs.config.json
 ```
 
 ## Compression command and options
